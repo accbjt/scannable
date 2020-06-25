@@ -25,7 +25,6 @@ import {
   BarSeries,
   Title,
   ArgumentAxis,
-  ValueAxis,
 } from '@devexpress/dx-react-chart-material-ui';
 
 import { Animation } from '@devexpress/dx-react-chart';
@@ -39,6 +38,34 @@ const data = [
   { year: '2000', population: 6.127 },
   { year: '2010', population: 6.930 },
 ];
+
+const getPath = (x, width, y, y1) => `M ${x} ${y1}
+   L ${width + x} ${y1}
+   L ${width + x} ${y + 30}
+   L ${x} ${y + 30}
+   Z`;
+
+const labelStyle = { fill: '#BBDEFB' };
+
+const BarWithLabel = ({
+  arg, barWidth, maxBarWidth, val, startVal, color, value, style,
+}) => {
+  const width = maxBarWidth * barWidth;
+  return (
+    <React.Fragment>
+      <path d={getPath(arg - width / 2, width, val, startVal)} fill={color} style={style} />
+      <Chart.Label
+        x={arg}
+        y={(val + startVal) / 2}
+        dominantBaseline="middle"
+        textAnchor="middle"
+        style={labelStyle}
+      >
+        {value}
+      </Chart.Label>
+    </React.Fragment>
+  );
+};
 
 class Demo extends React.PureComponent {
   constructor(props) {
@@ -58,11 +85,11 @@ class Demo extends React.PureComponent {
           data={chartData}
         >
           <ArgumentAxis />
-          <ValueAxis max={7} />
 
           <BarSeries
             valueField="population"
             argumentField="year"
+            pointComponent={BarWithLabel}
           />
           <Title text="World population" />
           <Animation />
