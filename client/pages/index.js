@@ -9,6 +9,10 @@ import Menu from '@material-ui/core/Menu';
 import MenuItem from '@material-ui/core/MenuItem';
 import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
 
+import InputLabel from '@material-ui/core/InputLabel';
+import FormControl from '@material-ui/core/FormControl';
+import Select from '@material-ui/core/Select';
+
 const useStyles = makeStyles((theme) => ({
   root: {
     flexGrow: 1,
@@ -23,12 +27,20 @@ const useStyles = makeStyles((theme) => ({
     color: 'white',
     marginRight: theme.spacing(20),
   },
+  formControl: {
+    margin: theme.spacing(1),
+    minWidth: 120,
+  },
+  selectEmpty: {
+    marginTop: theme.spacing(2),
+  },
 }));
 
 export default function Index() {
   const classes = useStyles();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [location, setLocation] = React.useState('Los Angeles');
+  const [line, setLine] = React.useState('');
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -37,6 +49,10 @@ export default function Index() {
   const handleClose = (e) => {
     setAnchorEl(null);
     setLocation(e.target.innerText);
+  };
+
+  const handleLineChange = (event) => {
+    setLine(event.target.value);
   };
 
   return (
@@ -65,6 +81,27 @@ export default function Index() {
           <Button color="inherit">Login</Button>
         </Toolbar>
       </AppBar>
+
+      <FormControl variant="outlined" className={classes.formControl}>
+        <InputLabel id="demo-simple-select-filled-label">Select Line</InputLabel>
+        <Select
+          labelId="demo-simple-select-outlined-label"
+          id="demo-simple-select-outlined"
+          value={line}
+          onChange={handleLineChange}
+          label="Select Line"
+        >
+          <MenuItem value="">Select Line</MenuItem>
+          <MenuItem value="1">Line 1</MenuItem>
+          <MenuItem value="2">Line 2</MenuItem>
+          <MenuItem value="3">Line 3</MenuItem>
+          <MenuItem value="4">Line 4</MenuItem>
+          <MenuItem value="5">Line 5</MenuItem>
+          <MenuItem value="6">Line 6</MenuItem>
+          <MenuItem value="7">Line 7</MenuItem>
+          <MenuItem value="8">Line 8</MenuItem>
+        </Select>
+      </FormControl>
     </Container>
   );
 }
