@@ -12,6 +12,7 @@ import KeyboardArrowDownIcon from '@material-ui/icons/KeyboardArrowDown';
 import InputLabel from '@material-ui/core/InputLabel';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
+import TextField from '@material-ui/core/TextField';
 
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
@@ -29,15 +30,52 @@ import {
 
 import { Animation } from '@devexpress/dx-react-chart';
 
-const data = [
-  { year: '1950', population: 2.525 },
-  { year: '1960', population: 3.018 },
-  { year: '1970', population: 3.682 },
-  { year: '1980', population: 4.440 },
-  { year: '1990', population: 5.310 },
-  { year: '2000', population: 6.127 },
-  { year: '2010', population: 6.930 },
-];
+import {
+  getLineProductScansByDateAndHour,
+  getCurrentProductScansByDateAndHour,
+} from '../src/graphql/queries';
+
+import { split } from 'apollo-link';
+import { HttpLink } from 'apollo-link-http';
+import { WebSocketLink } from 'apollo-link-ws';
+import { getMainDefinition } from 'apollo-utilities';
+import { ApolloProvider, Subscription } from 'react-apollo';
+import { ApolloClient } from 'apollo-client';
+import { InMemoryCache } from 'apollo-cache-inmemory';
+
+import { PRODUCT_SCAN_SUBSCRIPTION } from '../src/graphql/subscriptions';
+
+const wsLink = process.browser ? new WebSocketLink({ // if you instantiate in the server, the error will be thrown
+  uri: `ws://localhost:4000/graphql`,
+  options: {
+    reconnect: true,
+  },
+}) : null;
+
+const httplink = new HttpLink({
+	uri: 'http://localhost:4000/',
+});
+
+const link = process.browser ? split( //only create the split in the browser
+  // split based on operation type
+  ({ query }) => {
+    const { kind, operation } = getMainDefinition(query);
+    return kind === 'OperationDefinition' && operation === 'subscription';
+  },
+  wsLink,
+  httplink,
+) : httplink;
+
+const client = new ApolloClient({
+  link,
+  cache: new InMemoryCache(),
+})
+
+const quota = {
+  high: 1000,
+  medium: 700,
+  low: 150,
+};
 
 const getPath = (x, width, y, y1) => `M ${x} ${y1}
    L ${width + x} ${y1}
@@ -72,8 +110,33 @@ class Demo extends React.PureComponent {
     super(props);
 
     this.state = {
-      data,
+      currentLineID: '',
+      data: [],
     };
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.lineID !== this.props.lineID) {
+      this.fetchProductScans(this.props.lineID);
+    }
+  }
+
+  fetchProductScans(id) {
+    if (id) {
+      getLineProductScansByDateAndHour(parseInt(id)).then(data => {
+        this.setState({
+          currentLineID: id,
+          data: [
+            { hour: '8AM', qty: data.eight.length },
+            { hour: '9AM', qty: data.nine.length },
+            { hour: '10AM', qty: data.ten.length },
+            { hour: '11AM', qty: data.eleven.length },
+            { hour: '12PM', qty: data.twelve.length },
+            { hour: '1PM', qty: data.one.length },
+          ],
+        });
+      });
+    }
   }
 
   render() {
@@ -87,13 +150,29 @@ class Demo extends React.PureComponent {
           <ArgumentAxis />
 
           <BarSeries
-            valueField="population"
-            argumentField="year"
+            valueField="qty"
+            argumentField="hour"
             pointComponent={BarWithLabel}
           />
-          <Title text="World population" />
+          <Title text="" />
           <Animation />
         </Chart>
+
+        <Subscription
+          subscription={PRODUCT_SCAN_SUBSCRIPTION}
+          onSubscriptionData={(data) => {
+            const response = data.subscriptionData.data.productScanAdded;
+            const updatedRows = this.state.data.map(item => {
+              if (response[0].line_id === this.state.currentLineID && item.hour === '1PM') {
+                return { ...item, qty: response.length };
+              }
+
+              return item;
+            });
+
+            this.setState({ data: updatedRows});
+          }}
+        />
       </Paper>
     );
   }
@@ -129,19 +208,62 @@ export default function Index() {
   const classes = useStyles();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [location, setLocation] = React.useState('Los Angeles');
+  const [rows, setRows] = React.useState([
+    {
+      line_id: 1,
+      name: 'Line 1',
+      qty: 0,
+    },
+    {
+      line_id: 2,
+      name: 'Line 2',
+      qty: 0,
+    },
+    {
+      line_id: 3,
+      name: 'Line 3',
+      qty: 0,
+    },
+    {
+      line_id: 4,
+      name: 'Line 4',
+      qty: 0,
+    },
+    {
+      line_id: 5,
+      name: 'Line 5',
+      qty: 0,
+    },
+    {
+      line_id: 6,
+      name: 'Line 6',
+      qty: 0,
+    },
+    {
+      line_id: 7,
+      name: 'Line 7',
+      qty: 0,
+    },
+    {
+      line_id: 8,
+      name: 'Line 8',
+      qty: 0,
+    },
+  ]);
   const [line, setLine] = React.useState('');
   
-  function createData(name, calories, fat, carbs, protein) {
-    return { name, calories, fat, carbs, protein };
-  }
+  React.useEffect(async () => {
+    try {
+      const response = await getCurrentProductScansByDateAndHour();
+      const updateRows = Object.keys(response).map((key, i) => ({
+        ...rows[i], qty: response[key].length
+      }));
 
-  const rows = [
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-    createData('Eclair', 262, 16.0, 24, 6.0),
-    createData('Cupcake', 305, 3.7, 67, 4.3),
-    createData('Gingerbread', 356, 16.0, 49, 3.9),
-  ];
+      setRows(updateRows);
+    } catch (err) {
+      console.log(err);
+    }
+  }, []);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -156,85 +278,116 @@ export default function Index() {
     setLine(event.target.value);
   };
 
+  const handleTableClick = (i) => {
+    setLine(i);
+  };
+
+  const handleInputKeyUp = (e) => {
+    if (e.key === 'Enter') {
+      debugger
+    }
+  };
+
   return (
-    <Container disableGutters={true} className={classes.root}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" className={classes.title}>
-            Scannable
-          </Typography>
+    <ApolloProvider client={client}>
+      <Container disableGutters={true} className={classes.root}>
+        <AppBar position="static">
+          <Toolbar>
+            <Typography variant="h6" className={classes.title}>
+              Scannable
+            </Typography>
 
-          <Button className={classes.location} aria-controls="simple-menu" aria-haspopup="true" onClick={handleClick}>
-            {location}
-            <KeyboardArrowDownIcon />
-          </Button>
-          <Menu
-            id="simple-menu"
-            anchorEl={anchorEl}
-            keepMounted
-            open={Boolean(anchorEl)}
-            onClose={handleClose}
-          >
-            <MenuItem onClick={handleClose}>Los Angeles</MenuItem>
-            <MenuItem onClick={handleClose}>Chicago</MenuItem>
-          </Menu>
+            <Button className={classes.location} aria-controls="simple-menu" aria-haspopup="true" onClick={handleClick}>
+              {location}
+              <KeyboardArrowDownIcon />
+            </Button>
+            <Menu
+              id="simple-menu"
+              anchorEl={anchorEl}
+              keepMounted
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+            >
+              <MenuItem onClick={handleClose}>Los Angeles</MenuItem>
+              <MenuItem onClick={handleClose}>Chicago</MenuItem>
+            </Menu>
 
-          <Button color="inherit">Login</Button>
-        </Toolbar>
-      </AppBar>
+            <Button color="inherit">Login</Button>
+          </Toolbar>
+        </AppBar>
 
-      <Container>
-        <FormControl variant="outlined" className={classes.formControl}>
-          <InputLabel id="demo-simple-select-filled-label">Select Line</InputLabel>
-          <Select
-            labelId="demo-simple-select-outlined-label"
-            id="demo-simple-select-outlined"
-            value={line}
-            onChange={handleLineChange}
-            label="Select Line"
-          >
-            <MenuItem value="">Select Line</MenuItem>
-            <MenuItem value="1">Line 1</MenuItem>
-            <MenuItem value="2">Line 2</MenuItem>
-            <MenuItem value="3">Line 3</MenuItem>
-            <MenuItem value="4">Line 4</MenuItem>
-            <MenuItem value="5">Line 5</MenuItem>
-            <MenuItem value="6">Line 6</MenuItem>
-            <MenuItem value="7">Line 7</MenuItem>
-            <MenuItem value="8">Line 8</MenuItem>
-          </Select>
-        </FormControl>
+        <Container>
+          <FormControl variant="outlined" className={classes.formControl}>
+            <InputLabel id="demo-simple-select-filled-label">Select Line</InputLabel>
+            <Select
+              labelId="demo-simple-select-outlined-label"
+              id="demo-simple-select-outlined"
+              value={line}
+              onChange={handleLineChange}
+              label="Select Line"
+            >
+              <MenuItem value="">Select Line</MenuItem>
+              <MenuItem value="1">Line 1</MenuItem>
+              <MenuItem value="2">Line 2</MenuItem>
+              <MenuItem value="3">Line 3</MenuItem>
+              <MenuItem value="4">Line 4</MenuItem>
+              <MenuItem value="5">Line 5</MenuItem>
+              <MenuItem value="6">Line 6</MenuItem>
+              <MenuItem value="7">Line 7</MenuItem>
+              <MenuItem value="8">Line 8</MenuItem>
+            </Select>
 
-        <TableContainer component={Paper}>
-          <Table className={classes.table} aria-label="simple table">
-            <TableHead>
-              <TableRow>
-                <TableCell>Dessert (100g serving)</TableCell>
-                <TableCell align="right">Calories</TableCell>
-                <TableCell align="right">Fat&nbsp;(g)</TableCell>
-                <TableCell align="right">Carbs&nbsp;(g)</TableCell>
-                <TableCell align="right">Protein&nbsp;(g)</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.name}>
-                  <TableCell component="th" scope="row">
-                    {row.name}
-                  </TableCell>
-                  <TableCell align="right">{row.calories}</TableCell>
-                  <TableCell align="right">{row.fat}</TableCell>
-                  <TableCell align="right">{row.carbs}</TableCell>
-                  <TableCell align="right">{row.protein}</TableCell>
+            <TextField
+              id="outlined-basic"
+              label="Outlined"
+              variant="outlined"
+              onKeyUp={handleInputKeyUp}
+            />
+          </FormControl>
+
+          <TableContainer component={Paper}>
+            <Table className={classes.table} aria-label="simple table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>LINE</TableCell>
+                  <TableCell align="left">QTY</TableCell>
+                  <TableCell align="left">STATUS</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {rows.map((row, i) => (
+                  <TableRow onClick={() => handleTableClick(i + 1)} key={row.name}>
+                    <TableCell component="th" scope="row">
+                      {row.name}
+                    </TableCell>
+                    <TableCell align="left">{row.qty}</TableCell>
+                    <TableCell align="left">
+                      <div style={{ height: 20, width: 100, background: 'green'}}></div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Container>
+
+        <Container>
+          <Demo lineID={line} />
+        </Container>
       </Container>
-      <Container>
-        <Demo />
-      </Container>
-    </Container>
+
+      <Subscription
+        subscription={PRODUCT_SCAN_SUBSCRIPTION}
+        onSubscriptionData={(data) => {
+          const response = data.subscriptionData.data.productScanAdded;
+          const updatedRows = rows.map(row => response[0].line_id === row.line_id
+            ? { ...row, qty: response.length }
+            : row,
+          );
+
+          setRows(updatedRows);
+        }}
+      />
+    </ApolloProvider>
   );
 }
