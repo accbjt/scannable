@@ -70,13 +70,7 @@ const link = process.browser ? split( //only create the split in the browser
 const client = new ApolloClient({
   link,
   cache: new InMemoryCache(),
-})
-
-const quota = {
-  high: 1000,
-  medium: 700,
-  low: 150,
-};
+});
 
 const getPath = (x, width, y, y1) => `M ${x} ${y1}
    L ${width + x} ${y1}
@@ -84,15 +78,16 @@ const getPath = (x, width, y, y1) => `M ${x} ${y1}
    L ${x} ${y + 30}
    Z`;
 
-const labelStyle = { fill: '#BBDEFB' };
+const labelStyle = { fill: 'black' };
 
 const BarWithLabel = ({
   arg, barWidth, maxBarWidth, val, startVal, color, value, style,
 }) => {
   const width = maxBarWidth * barWidth;
+
   return (
     <React.Fragment>
-      <path d={getPath(arg - width / 2, width, val, startVal)} fill={color} style={style} />
+      <path d={getPath(arg - width / 2, width, val, startVal)} fill={getIndicationColor(value)} style={style} />
       <Chart.Label
         x={arg}
         y={(val + startVal) / 2}
@@ -111,9 +106,13 @@ class Demo extends React.PureComponent {
     super(props);
 
     this.state = {
-      currentLineID: '',
+      currentLineID: this.props.lineID,
       data: [],
     };
+  }
+
+  componentDidMount() {
+    this.fetchProductScans(this.props.lineID);
   }
 
   componentDidUpdate(prevProps) {
@@ -204,6 +203,16 @@ const useStyles = makeStyles((theme) => ({
     minWidth: 650,
   },
 }));
+
+const getIndicationColor = (qty) => {
+  if (qty > 200) {
+    return '#9cd08a';
+  } else if (qty > 100 && qty < 200) {
+    return '#ffc093';
+  }
+
+  return '#ffb8b7';
+}
 
 export default function Index() {
   const classes = useStyles();
@@ -343,44 +352,56 @@ export default function Index() {
               <MenuItem value="7">Line 7</MenuItem>
               <MenuItem value="8">Line 8</MenuItem>
             </Select>
-
-            <TextField
-              id="outlined-basic"
-              label="Outlined"
-              variant="outlined"
-              onKeyUp={handleInputKeyUp}
-            />
           </FormControl>
 
-          <TableContainer component={Paper}>
-            <Table className={classes.table} aria-label="simple table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>LINE</TableCell>
-                  <TableCell align="left">QTY</TableCell>
-                  <TableCell align="left">STATUS</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row, i) => (
-                  <TableRow onClick={() => handleTableClick(i + 1)} key={row.name}>
-                    <TableCell component="th" scope="row">
-                      {row.name}
-                    </TableCell>
-                    <TableCell align="left">{row.qty}</TableCell>
-                    <TableCell align="left">
-                      <div style={{ height: 20, width: 100, background: 'green'}}></div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          {
+            line && (
+                <FormControl variant="outlined" className={classes.formControl}>
+                  <TextField
+                      id="outlined-basic"
+                      label="Outlined"
+                      variant="outlined"
+                      onKeyUp={handleInputKeyUp}
+                    />
+                </FormControl>
+            )
+          }
         </Container>
 
-        <Container>
-          <Demo lineID={line} />
-        </Container>
+        {
+          line ? (
+            <Container>
+              <Demo lineID={line} />
+            </Container>
+          ) : (
+            <Container>
+              <TableContainer component={Paper}>
+                <Table className={classes.table} aria-label="simple table">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>LINE</TableCell>
+                      <TableCell align="left">QTY</TableCell>
+                      <TableCell align="left">STATUS</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {rows.map((row, i) => (
+                      <TableRow onClick={() => handleTableClick(i + 1)} key={row.name}>
+                        <TableCell component="th" scope="row">
+                          {row.name}
+                        </TableCell>
+                        <TableCell align="left">{row.qty}</TableCell>
+                        <TableCell align="left">
+                          <div style={{ height: 20, width: 100, background: getIndicationColor(row.qty)}}></div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Container>
+          )
+        }
       </Container>
 
       <Subscription
