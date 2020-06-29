@@ -45,6 +45,9 @@ import { InMemoryCache } from 'apollo-cache-inmemory';
 
 import { PRODUCT_SCAN_SUBSCRIPTION } from '../src/graphql/subscriptions';
 import { CREATE_PRODUCT_SCAN } from '../src/graphql/mutations';
+import BarGraph from '../src/components/bar-graph';
+
+import { getIndicationColor } from '../src/services/utils';
 
 const wsLink = process.browser ? new WebSocketLink({ // if you instantiate in the server, the error will be thrown
   uri: `ws://localhost:4000/graphql`,
@@ -72,112 +75,6 @@ const client = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
-const getPath = (x, width, y, y1) => `M ${x} ${y1}
-   L ${width + x} ${y1}
-   L ${width + x} ${y + 30}
-   L ${x} ${y + 30}
-   Z`;
-
-const labelStyle = { fill: 'black' };
-
-const BarWithLabel = ({
-  arg, barWidth, maxBarWidth, val, startVal, color, value, style,
-}) => {
-  const width = maxBarWidth * barWidth;
-
-  return (
-    <React.Fragment>
-      <path d={getPath(arg - width / 2, width, val, startVal)} fill={getIndicationColor(value)} style={style} />
-      <Chart.Label
-        x={arg}
-        y={(val + startVal) / 2}
-        dominantBaseline="middle"
-        textAnchor="middle"
-        style={labelStyle}
-      >
-        {value}
-      </Chart.Label>
-    </React.Fragment>
-  );
-};
-
-class Demo extends React.PureComponent {
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      currentLineID: this.props.lineID,
-      data: [],
-    };
-  }
-
-  componentDidMount() {
-    this.fetchProductScans(this.props.lineID);
-  }
-
-  componentDidUpdate(prevProps) {
-    if (prevProps.lineID !== this.props.lineID) {
-      this.fetchProductScans(this.props.lineID);
-    }
-  }
-
-  fetchProductScans(id) {
-    if (id) {
-      getLineProductScansByDateAndHour(parseInt(id)).then(data => {
-        this.setState({
-          currentLineID: parseInt(id),
-          data: [
-            { hour: '8AM', qty: data.eight.length },
-            { hour: '9AM', qty: data.nine.length },
-            { hour: '10AM', qty: data.ten.length },
-            { hour: '11AM', qty: data.eleven.length },
-            { hour: '12PM', qty: data.twelve.length },
-            { hour: '1PM', qty: data.one.length },
-          ],
-        });
-      });
-    }
-  }
-
-  render() {
-    const { data: chartData } = this.state;
-
-    return (
-      <Paper>
-        <Chart
-          data={chartData}
-        >
-          <ArgumentAxis />
-
-          <BarSeries
-            valueField="qty"
-            argumentField="hour"
-            pointComponent={BarWithLabel}
-          />
-          <Title text="" />
-          <Animation />
-        </Chart>
-
-        <Subscription
-          subscription={PRODUCT_SCAN_SUBSCRIPTION}
-          onSubscriptionData={(data) => {
-            const response = data.subscriptionData.data.productScanAdded;
-            const updatedRows = this.state.data.map(item => {
-              if (response[0].line_id === this.state.currentLineID && item.hour === '1PM') {
-                return { ...item, qty: response.length };
-              }
-
-              return item;
-            });
-
-            this.setState({ data: updatedRows});
-          }}
-        />
-      </Paper>
-    );
-  }
-};
-
 const useStyles = makeStyles((theme) => ({
   root: {
     flexGrow: 1,
@@ -203,16 +100,6 @@ const useStyles = makeStyles((theme) => ({
     minWidth: 650,
   },
 }));
-
-const getIndicationColor = (qty) => {
-  if (qty > 200) {
-    return '#9cd08a';
-  } else if (qty > 100 && qty < 200) {
-    return '#ffc093';
-  }
-
-  return '#ffb8b7';
-}
 
 export default function Index() {
   const classes = useStyles();
@@ -371,7 +258,7 @@ export default function Index() {
         {
           line ? (
             <Container>
-              <Demo lineID={line} />
+              <BarGraph lineID={line} />
             </Container>
           ) : (
             <Container>
