@@ -44,6 +44,7 @@ import { ApolloClient } from 'apollo-client';
 import { InMemoryCache } from 'apollo-cache-inmemory';
 
 import { PRODUCT_SCAN_SUBSCRIPTION } from '../src/graphql/subscriptions';
+import { CREATE_PRODUCT_SCAN } from '../src/graphql/mutations';
 
 const wsLink = process.browser ? new WebSocketLink({ // if you instantiate in the server, the error will be thrown
   uri: `ws://localhost:4000/graphql`,
@@ -125,7 +126,7 @@ class Demo extends React.PureComponent {
     if (id) {
       getLineProductScansByDateAndHour(parseInt(id)).then(data => {
         this.setState({
-          currentLineID: id,
+          currentLineID: parseInt(id),
           data: [
             { hour: '8AM', qty: data.eight.length },
             { hour: '9AM', qty: data.nine.length },
@@ -208,6 +209,7 @@ export default function Index() {
   const classes = useStyles();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [location, setLocation] = React.useState('Los Angeles');
+  const [line, setLine] = React.useState('');
   const [rows, setRows] = React.useState([
     {
       line_id: 1,
@@ -250,7 +252,6 @@ export default function Index() {
       qty: 0,
     },
   ]);
-  const [line, setLine] = React.useState('');
   
   React.useEffect(async () => {
     try {
@@ -284,7 +285,13 @@ export default function Index() {
 
   const handleInputKeyUp = (e) => {
     if (e.key === 'Enter') {
-      debugger
+      client.mutate({
+        mutation: CREATE_PRODUCT_SCAN,
+        variables: {
+          line_id: parseInt(line),
+          product_number: 1231234,
+        },
+      });
     }
   };
 
