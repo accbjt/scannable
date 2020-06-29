@@ -246,7 +246,7 @@ export default function Index() {
                 <FormControl variant="outlined" className={classes.formControl}>
                   <TextField
                       id="outlined-basic"
-                      label="Outlined"
+                      label="Scan Component"
                       variant="outlined"
                       onKeyUp={handleInputKeyUp}
                     />
